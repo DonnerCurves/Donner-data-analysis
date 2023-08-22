@@ -1,4 +1,5 @@
 # Donner_R_Code_Public
+# Anonymous, last revised 8/21/23 9:37 PM
 # Analysis of Donner data from Grayson (1990, Table 1 &  Grayson 1994)
 # Aided by OpenAI GPT-4
 # References
