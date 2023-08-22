@@ -1,10 +1,13 @@
 # Donner_R_Code_Public
-# Anonymous, last revised 8/21/23 9:37 PM
-# Analysis of Donner data from Grayson (1990, Table 1 &  Grayson 1994)
+# Anonymous, last revised 8/22/23
+# Analysis of Donner data from Grayson (1990, 1994, 2018)
 # Aided by OpenAI GPT-4
 # References
 # Burnham, K. P. and Anderson, D.R. (2004), “Multimodal inference:
-#   understanding AIC and BIC in model selection,” Sociological Methods and
+#   understanding AIC and BIC in model selection,” Sociological Methods and 
+#   Research 33, 261-304.
+# Christmas, B. K. (2008), Tragedy in the Sierra Nevada: a Narrative of the
+#   Donner Party. Charleston: CreateSpace.
 # Grayson, D. K. 1990. Donner Party Deaths: a Demographic Assessment. J.
 #    Anthropological Research 46: 223-242.
 # Grayson, D. K. 1994. Differential Mortality and the Donner Party Disaster. 
@@ -24,25 +27,18 @@
 #    Houghton Mifflin, Boston.392 pp.
 # 
 # Approach: 1) add the under 15 Age data to the Donner data from Statistical
-# Sleuth 3rd edition, 2) change age of Patrick Breen to 51 (Grayson, 1994, 
-# p 155). 3) Grayson (1990, 1997, 2018) argued Family Group Size, Age, and Sex
-# control survival and Rarick emphasized the poor survivorship of teamsters and
-# servants, combined here as Employees. This R code will analyze the effects of
-# all four variables.
+# Sleuth 3rd edition, 2) Update with best demographic data from Grayson (2018).
+# 3) Grayson (1990, 1997, 2018) argued Family Group Size, Age, and Sex
+# control survival. Christmas(2008) and Rarick (2018) emphasized the poor
+# survivorship of teamsters and servants, combined here as Employees. This R
+# code will analyze the effects of all four variables.
 # 4) Reviewed above books to find death dates for surviving travelers and
 # performed survival analyses confirming Grayson (1997) on death timing.
-# Updated Demographic data in Donner.csv to conform to Grayson (2018)
 # 5) Renumbered the models and ran both glm and Glm on each model, the latter
 #    to get the data on rcs effect sizes and to plot the data Harrell-style.
 # 6) It appears that the 3-d plots are badly overfit due to the AIC optimization
-#    I'll reduce the number of knots and then have GPT-4 develop a k-fold
-#    cross validation to objectively choose appropriate knot numbers. 8/20/23
-
-# Used data imputation to fill in the missing age for Mr. Wolfinger
-# Have R determine family size by the numbers of individuals with the same
-# last name (not used in manuscript) but used Grayson's (1990) Family Group
-# Size, which incorporates information from Stewart's (1960) roster on who was
-# traveling with each Family Travel Group.
+#    so developed a k-fold cross validation to select rcs knots.
+# 7) Used data imputation to fill in the missing age for Mr. Wolfinger
 
 # Optional statement needed to see full output in a word processor:
 sink("my_output.txt")   # Optional Redirect output to a file, make sure that
@@ -68,16 +64,6 @@ library(tidyverse) # contains dplyr and ggplot2
 
 Donner <- read.csv("https://raw.githubusercontent.com/DonnerCurves/donner-data-analysis/main/Donner.csv")
 
-# Calculate family size based on Last_Name, but Family_Group_Size from Grayson
-# (1990, 2018) Table 1 will be used in this code's analyses.
-Donner$Family_Size <- as.integer(ave(Donner$Last_Name, Donner$Last_Name, FUN =length))
-
-str(Donner)
-
-# This produced slightly different Family Sizes than Grayson (1990 Table 1, 
-# 2018 Table 2.1. Used Grayson (1990, 2018) Family Group Sizes with included
-# family links using data from Stewart's (1960, p 363-364) Donner Party Roster.
-
 # Convert Status to binary
 Donner$Status <- ifelse(Donner$Status == "Survived", 1, 0)
 
@@ -92,10 +78,14 @@ Donner$Survival_Time <- as.numeric(Donner$Last_Date_Date - Donner$First_Snow_Dat
 
 # View the first few rows of the data frame to confirm the results
 head(Donner)
+str(Donner)
 
-# Impute missing Age values for Mr. Wolfinger, using median imputation
+# Impute missing Age values for Louis Wolfinger, using median imputation
 # Rarick (2008, xi) provides Dora Wolfinger's age as 20. This section will
-# Assign Mr. Wolfinger an age of 23, which seems reasonable.
+# Assign Mr. Wolfinger an age of 23, which seems reasonable. Note that Wolfinger
+# died before the the 28 October 1846 entrapment, so he will be deleted in the
+# next section
+
 # Compute the median age for each sex
 medians <- Donner %>%
   group_by(Sex) %>%
@@ -123,7 +113,7 @@ options(datadist = "ddist")
 # Fit the model with Age, Sex, and Grayson's (1990, 2018) Family_Group_Size
 # In deciding on knot size, I used the rule that the minimum knot size should
 # be chosen (rcs has a min of 3) unless there is another larger number of knots
-# with an AIC which is more than than 4 AIC units lower (Burnham & Anderson
+# with an AIC which is more than than 4 AIC units smaller (Burnham & Anderson
 # 2004, p 271)
 
 # Two methods will be coded for finding the appropriate number of knots:
@@ -135,7 +125,6 @@ options(datadist = "ddist")
 
 # Fit Model 1:    Status ~ rcs(Age, 3) * Sex
 Mod1  <- glm(Status ~ rcs(Age,3) * Sex, data = Donner, family = binomial(), x = TRUE, y = TRUE)
-
 # Need Harrell's Glm for effect sizes and graphic with rms::Predict
 mod1  <- Glm(Status ~ rcs(Age,3) * Sex, data = Donner, family = binomial(), x = TRUE, y = TRUE)
 # Where are the knots located?
@@ -147,17 +136,17 @@ mod_null <- glm(Status ~ 1, data = Donner, family = binomial())
 # Additive model
 mod2  <- Glm(Status ~ rcs(Age,3) + Sex, data = Donner, family = binomial(), x = TRUE, y = TRUE)
 Mod2  <- glm(Status ~ rcs(Age,3) + Sex, data = Donner, family = binomial(), x = TRUE, y = TRUE)
-# Test the models
+# Test the models with Wilks (drop in deviance) tests
 chi_sq_n1 <- anova(mod_null, Mod1, test="Chisq")
 # Print the results
 print(chi_sq_n1)
-# Summary and ANOVA for Mod1
 # Test whether the interaction model adds value.
 chi_sq_21 <- anova(Mod2, Mod1, test="Chisq")
 # Print the results
 print(chi_sq_21)
 # Summaries and effect sizes of the Age(rcs4) * Sex model
 summary(Mod1)
+summary(mod1)  #with base Glm, the summary includes effect sizes
 anova(Mod1)
 AIC(Mod1)
 
@@ -174,25 +163,21 @@ Mod3 <- glm(Status ~ rcs(Family_Group_Size,5), data = Donner,
 mod3 <- Glm(Status ~ rcs(Family_Group_Size,5), data = Donner, 
             family = binomial(), x = TRUE, y = TRUE)
 # Null model
-# Test the models
+# Test the models with a Wilks (drop in deviance) test
 chi_sq_n2 <- anova(mod_null, Mod3, test="Chisq")
 # Print the results
 print(chi_sq_n2)
-# Summary and ANOVA for mod
+# Summary and ANOVA for Mod3
 summary(Mod3)
+summary(mod3)  # For effect sizes with Harrell's Glm
 anova(Mod3)
-summary(mod3)  # For effect size
-AIC(mod3)
 AIC(Mod3)
 
-mod4 <- Glm(Status ~ Age + Sex + rcs(Family_Group_Size,5), data = Donner, family = binomial(), x = TRUE, y = TRUE)
-Mod4 <- glm(Status ~ Age + Sex + rcs(Family_Group_Size,4), data = Donner, family = binomial(), x = TRUE, y = TRUE)
 # for mod5, knot sizes of 3 & 5 determined by k-fold cross validation, code below
 mod5 <- Glm(Status ~ rcs(Age,3) * Sex + rcs(Family_Group_Size,5), data = Donner, family = binomial(), x = TRUE, y = TRUE)
 Mod5 <- glm(Status ~ rcs(Age,3) * Sex + rcs(Family_Group_Size,5), data = Donner, family = binomial(), x = TRUE, y = TRUE)
 
 ##### Second approach: GPT4 Streamlined the above code block with functions:
-
 # Function to fit models with one rcs term, updated on 8/17/23 by GPT-4
 fit_best_rcs <- function(formula_template, data, knot_range) {
   
@@ -291,13 +276,11 @@ print_details <- function(model_result, model_name) {
 knot_range <- 3:7
 mod1_results <- fit_best_rcs("Status ~ rcs(Age, KNOTS) * Sex", Donner, knot_range)
 mod3_results <- fit_best_rcs("Status ~ rcs(Family_Group_Size, KNOTS)", Donner, knot_range)
-mod4_results <- fit_best_rcs("Status ~ rcs(Family_Group_Size, KNOTS) * Sex", Donner, knot_range)
 mod5_results <- fit_best_double_rcs("Status ~ rcs(Age, knots_age) * Sex + rcs(Family_Group_Size, knots_fgs)", Donner, knot_range)
 
 # Printing the details
 print_details(mod1_results, "mod1")
 print_details(mod3_results, "mod3")
-print_details(mod4_results, "mod4")
 print_details(mod5_results, "mod5")
 
 ###### End of GPT-4 AIC rcs optimization code ######
@@ -313,8 +296,6 @@ new_sex <- unique(Donner$Sex)
 # The Predict function require fit by Glm not glm
 link_pred1 <- Predict(mod1, Age = new_age, Sex = new_sex)
 link_pred3 <- Predict(mod3, Family_Group_Size = new_family_group_size)
-link_pred4 <- Predict(mod4, Age = new_age, Sex = new_sex,
-                      Family_Group_Size = new_family_group_size)
 link_pred5 <- Predict(mod5, Age = new_age, Sex = new_sex, 
                       Family_Group_Size = new_family_group_size)
 
@@ -336,14 +317,6 @@ pred3 <- data.frame(
 )
 
 # Transform predictions back to the original scale (probability scale)
-pred4 <- data.frame(
-  Age = rep(new_age, times = length(new_sex)),
-  Sex = rep(new_sex, each = length(new_age)),
-  Family_Group_Size = rep(new_family_group_size, each = length(new_family_group_size)),
-  fit = plogis(link_pred4$yhat),
-  lower = plogis(link_pred4$lower),
-  upper = plogis(link_pred4$upper)
-)
 
 pred5 <-  data.frame(
   Age = rep(new_age, times = length(new_sex)),
@@ -377,26 +350,14 @@ ggplot(pred3, aes(x = Family_Group_Size, y = fit, color = Sex)) +
               shape = Sex, color = Sex), width = 0.3, height = 0.03,
               size = 1.5) +
   labs(x = "Family Group Size", y = "Estimated Probability of Survival",
-  title = "Fig. 3. rcs(Family Group Size, 5) with 95% confidence intervals",
+  title = "Fig. 3. rcs(Family Group Size, 6) with 95% confidence intervals",
        color = "Sex") +
   theme_minimal() +
   scale_y_continuous(limits = c(-0.06, 1.06), breaks = seq(0, 1, 0.2))
 
-# Plot the results for the additive model, mod2 (graphic not used in manuscript)
-plot_3d_mod4 <- plot_ly(data = subset(pred4, Sex == "Male"), x = ~Age, y = ~Family_Group_Size, z = ~fit, 
-                        type = "mesh3d", opacity = 0.6, name = "Male", showscale = FALSE) %>%
-  add_trace(data = subset(pred4, Sex == "Female"), x = ~Age, y = ~Family_Group_Size, z = ~fit, 
-            type = "mesh3d", opacity = 0.6, name = "Female", showscale = FALSE) %>%
-  layout(scene = list(zaxis = list(range = c(0, 1)),
-                      xaxis = list(title = "Age"),
-                      yaxis = list(title = "Family Group Size"),
-                      zaxis = list(title = "Estimated Probability of Survival")),
-#         title = "Age + Sex + rcs(Family_Group_Size,6)")
-       title = "Age + Sex + rcs(Family_Group_Size,6)")
-plot_3d_mod4
 
 # Plot the results for the rcs(Age,3) * Sex * rcs(Family_Group-Size,5) 3-d model
-# Graphic not used in the manuscript (too curvy)
+# 
 plot_3d_mod5 <- plot_ly(data = subset(pred5, Sex == "Male"), x = ~Age, y = ~Family_Group_Size, z = ~fit, 
                         type = "mesh3d", opacity = 0.6, name = "Male", showscale = FALSE) %>%
   add_trace(data = subset(pred5, Sex == "Female"), x = ~Age, y = ~Family_Group_Size, z = ~fit, 
@@ -405,13 +366,65 @@ plot_3d_mod5 <- plot_ly(data = subset(pred5, Sex == "Male"), x = ~Age, y = ~Fami
                       xaxis = list(title = "Age"),
                       yaxis = list(title = "Family Group Size"),
                       zaxis = list(title = "Estimated Probability of Survival")),
-                      title = "rcs(Age,3) * Sex + rcs(Family_Group_Size,5)")
+                      title = "Fig. 5 rcs(Age,3) * Sex + rcs(Family_Group_Size,5)")
 plot_3d_mod5
 
-### 8/20/23 addendum. Fitting rcs knots with k-fold cross validation ##########
-# The AIC approach produces a badly overfit mod5 showing
-# a 3-d plot that was far too flexible. I sent a 3-p prompt on the problem to
-# GPT-4 and it provided this solution
+# I developed code for k-fold cross validation to determine the appropriate
+# knot numbers for Mod1 and Mod3
+# Here is the k-fold cross validation code for Mod1 ############################
+
+cv_rcs_mod1 <- function(k_age, data, n_folds = 10){
+  
+  cv_errors <- numeric(n_folds)
+  fold_indices <- sample(rep(1:n_folds, length.out = nrow(data)))
+  
+  for(i in 1:n_folds){
+    training_data <- data[fold_indices != i, ]
+    test_data <- data[fold_indices == i, ]
+    
+    glm_model <- glm(Status ~ rcs(Age, k_age) * Sex, 
+                     data = training_data, family = binomial())
+    
+    predictions <- predict(glm_model, newdata = test_data, type = "response")
+    cv_errors[i] <- -2 * sum(test_data$Status * log(predictions) + (1 - test_data$Status) * log(1 - predictions))
+  }
+  
+  return(mean(cv_errors))
+}
+
+k_values_age <- 3:7
+cv_results_age <- sapply(k_values_age, function(k) cv_rcs_mod1(k, Donner))
+
+optimal_k_age <- k_values_age[which.min(cv_results_age)]
+print(paste("Optimal k for Age in Mod1: ", optimal_k_age))
+
+#Here is the code for k-fold cross validation code for Mod3 #################### 
+cv_rcs_mod3 <- function(k_fgs, data, n_folds = 10){
+  
+  cv_errors <- numeric(n_folds)
+  fold_indices <- sample(rep(1:n_folds, length.out = nrow(data)))
+  
+  for(i in 1:n_folds){
+    training_data <- data[fold_indices != i, ]
+    test_data <- data[fold_indices == i, ]
+    
+    glm_model <- glm(Status ~ rcs(Family_Group_Size, k_fgs), 
+                     data = training_data, family = binomial())
+    
+    predictions <- predict(glm_model, newdata = test_data, type = "response")
+    cv_errors[i] <- -2 * sum(test_data$Status * log(predictions) + (1 - test_data$Status) * log(1 - predictions))
+  }
+  
+  return(mean(cv_errors))
+}
+
+k_values_fgs <- 3:7
+cv_results_fgs <- sapply(k_values_fgs, function(k) cv_rcs_mod3(k, Donner))
+
+optimal_k_fgs <- k_values_fgs[which.min(cv_results_fgs)]
+print(paste("Optimal k for Family_Group_Size in Mod3: ", optimal_k_fgs))
+
+#Here is the k-fold cross validation code for Mod5 #############################
 
 cv_rcs <- function(k_age, k_fgs, data, n_folds = 10){
   
@@ -467,6 +480,7 @@ best_glm_model <- glm(Status ~ rcs(Age, optimal_k_age) * Sex +
                       rcs(Family_Group_Size, optimal_k_fgs), 
                       data = Donner, family = binomial())
 summary(best_glm_model)
+
 ## This optimization produces Age: 3 knots, Family Group Size 5 knots.
 
 # Summary and ANOVA for mod5 with knot sizes determined by k-fold cross validation
@@ -478,10 +492,10 @@ anova(Mod5)
 summary(mod5)  # For effect size
 AIC(mod5)
 
-### end of 8/20/23 GPT-4 code. #################################################
+### end of k-fold cross validation for rcs code (aided by GPT-4) ###############
 
-##### GAM analysis of the 79 Travelers #####
-######## k-fold cross validation to find optimal k for the GAMs
+##### GAM analysis of the 79 Travelers #########################################
+######## k-fold cross validation to find optimal basis function k for the GAMs
 
 # Set a seed for reproducibility
 set.seed(123)
@@ -921,6 +935,37 @@ print(paste("95% Confidence Interval:", round(test_result$conf.int[1], 3), "to",
 # issued because the minimum sample sizes for 2 x 2 have expectations less
 # than 5. The proportions and Fisher's exact test are correct, hence CrossTable
 CrossTable(donner_matrix,digits=3,fisher = TRUE, chisq = TRUE, expected = TRUE,
+           format = "SPSS")
+
+## 7. Analysis of the Whaleship Essex survivorship with Fisher's exact test.
+
+# Create the data matrix
+# The matrix format is:
+#        Survived Died
+# Wnite      7     4
+# Black      1     5
+
+Essex_matrix <- matrix(c(7, 4, 1, 5), nrow=2, byrow=TRUE)
+colnames(Essex_matrix) <- c("Survived", "Died")
+rownames(Essex_matrix) <- c("White", "Black")
+print(Essex_matrix)
+
+# Fisher's exact test
+test_result_2 <- fisher.test(Essex_matrix)
+
+# Print the results
+print(test_result_2)
+
+# Odds ratio
+print(paste("Odds Ratio:", test_result$estimate))
+
+# Confidence interval for the odds ratio
+print(paste("95% Confidence Interval:", round(test_result$conf.int[1], 3), "to", round(test_result$conf.int[2], 3)))
+
+# Produces an SPSS-like table.  Note that with the Essex data, warnings are
+# issued because the minimum sample sizes for 2 x 2 have expectations less
+# than 5. The proportions and Fisher's exact test are correct, hence CrossTable
+CrossTable(Essex_matrix,digits=3,fisher = TRUE, chisq = TRUE, expected = TRUE,
            format = "SPSS")
 
 sink()   # Optional Turn off redirection
