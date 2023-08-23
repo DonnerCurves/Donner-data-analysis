@@ -1,5 +1,5 @@
 # Donner_R_Code_Public
-# Anonymous, last revised 8/22/23
+# Eugene.Gallagher@umb.edu, UMass Boston, last revised 8/23/23
 # Analysis of Donner data from Grayson (1990, 1994, 2018)
 # Aided by OpenAI GPT-4
 # References
@@ -42,7 +42,7 @@
 
 # Optional statement needed to see full output in a word processor:
 sink("my_output.txt")   # Optional Redirect output to a file, make sure that
-                        # that the file readme.txt is not open in another app.
+# that the file readme.txt is not open in another app.
 
 # Install and load packages
 library(boot) # for cv.glm function
@@ -335,10 +335,10 @@ ggplot(pred1, aes(x = Age, y = fit, color = Sex)) +
   geom_line() +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
   geom_jitter(data = Donner, aes(x = Age, y = AdjustedStatus,
-            shape = Sex, color = Sex), width = 0.3, height = 0.03, size = 1.5) +
+                                 shape = Sex, color = Sex), width = 0.3, height = 0.03, size = 1.5) +
   labs(x = "Age (Years)", y = "Estimated Probability of Survival",
-  title = "Fig. 1. rcs(Age, 3) * Sex with 95% confidence intervals",
-        color = "Sex") +
+       title = "Fig. 1. rcs(Age, 3) * Sex with 95% confidence intervals",
+       color = "Sex") +
   theme_minimal() +
   scale_y_continuous(limits = c(-0.06, 1.06), breaks = seq(0, 1, 0.2))
 
@@ -347,10 +347,10 @@ ggplot(pred3, aes(x = Family_Group_Size, y = fit, color = Sex)) +
   geom_line() +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
   geom_jitter(data = Donner, aes(x = Family_Group_Size, y = AdjustedStatus,
-              shape = Sex, color = Sex), width = 0.3, height = 0.03,
+                                 shape = Sex, color = Sex), width = 0.3, height = 0.03,
               size = 1.5) +
   labs(x = "Family Group Size", y = "Estimated Probability of Survival",
-  title = "Fig. 3. rcs(Family Group Size, 6) with 95% confidence intervals",
+       title = "Fig. 3. rcs(Family Group Size, 6) with 95% confidence intervals",
        color = "Sex") +
   theme_minimal() +
   scale_y_continuous(limits = c(-0.06, 1.06), breaks = seq(0, 1, 0.2))
@@ -366,7 +366,7 @@ plot_3d_mod5 <- plot_ly(data = subset(pred5, Sex == "Male"), x = ~Age, y = ~Fami
                       xaxis = list(title = "Age"),
                       yaxis = list(title = "Family Group Size"),
                       zaxis = list(title = "Estimated Probability of Survival")),
-                      title = "Fig. 5 rcs(Age,3) * Sex + rcs(Family_Group_Size,5)")
+         title = "Fig. 5 rcs(Age,3) * Sex + rcs(Family_Group_Size,5)")
 plot_3d_mod5
 
 # I developed code for k-fold cross validation to determine the appropriate
@@ -477,7 +477,7 @@ print(paste("Optimal k for Family_Group_Size: ", optimal_k_fgs))
 
 # Fit the optimal model
 best_glm_model <- glm(Status ~ rcs(Age, optimal_k_age) * Sex + 
-                      rcs(Family_Group_Size, optimal_k_fgs), 
+                        rcs(Family_Group_Size, optimal_k_fgs), 
                       data = Donner, family = binomial())
 summary(best_glm_model)
 
@@ -579,7 +579,7 @@ ggplot(pred_data, aes(x = Age, y = fit, color = Sex, shape = Sex)) +
   geom_jitter(data = Donner, aes(x = Age, y = AdjustedStatus),
               width = 0.3, height = 0.03, size = 1.5) +
   labs(x = "Age (Years)", y = "Estimated Probability of Survival",
-   title = "Fig. 2. GAM (k=2) with Age smooths by Sex with 95% confidence intervals") +
+       title = "Fig. 2. GAM (k=2) with Age smooths by Sex with 95% confidence intervals") +
   theme_minimal() +
   scale_y_continuous(limits = c(-0.06, 1.06), breaks = seq(0, 1, 0.2)) +
   scale_color_manual(values = c("Male" = "blue", "Female" = "pink2"), name = "Sex") +
@@ -671,8 +671,8 @@ ggplot(pred_data, aes(x = Family_Group_Size, y = fit)) +
                                  shape = Sex, color = Sex), width = 0.3, height = 0.03,
               size = 1.5) +
   labs(x = "Family Group Size", y = "Estimated Probability of Survival",
-# title = paste0("GAM (k=", best_k, ") with Family Group Size with 95% confidence intervals"),
- title = paste0("Fig. 4. GAM (k=", best_k, ") with Family Group Size with 95% confidence intervals"),
+       # title = paste0("GAM (k=", best_k, ") with Family Group Size with 95% confidence intervals"),
+       title = paste0("Fig. 4. GAM (k=", best_k, ") with Family Group Size with 95% confidence intervals"),
        color = "Sex") +
   theme_minimal() +
   scale_y_continuous(limits = c(-0.06, 1.06), breaks = seq(0, 1, 0.2))
